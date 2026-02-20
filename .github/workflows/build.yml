@@ -1,4 +1,4 @@
-name: Build WhatsApp Desktop
+name: Build WhatsApp Desktop - Windows Only
 
 on:
   push:
@@ -21,133 +21,39 @@ jobs:
           node-version: '24.13.1'
           cache: 'npm'
       
-      - name: 📦 Install Yarn
+      - name: 📦 Install Yarn globally
         run: npm install -g yarn
       
       - name: 🔧 Install root dependencies
         run: npm install
       
       - name: 🔧 Install app dependencies
+        working-directory: ./app
+        run: yarn install
+      
+      - name: 🏗️ Build Windows x64 with electron-packager
+        shell: cmd
         run: |
-          cd app
-          yarn install
-          cd ..
+          npx electron-packager ./app WhatsApp --overwrite --out=build/dist --package-manager=yarn --platform=win32 --arch=x64 --electron-version=40.6.0 --icon=build/assets/win/whatsapp.ico
       
-      - name: 🏗️ Build Windows x64
-        run: npm run build:win
+      - name: 📦 Create build directory structure
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path build/releases
+          Compress-Archive -Path build/dist/WhatsApp-win32-x64/* -DestinationPath build/releases/WhatsApp-win32-x64.zip -Force
       
-      - name: 📤 Upload Windows Build
+      - name: 📤 Upload Windows Build (Folder)
         uses: actions/upload-artifact@v4
         with:
           name: WhatsApp-Desktop-Windows-x64
-          path: dist/whatsapp-desktop-win32-x64/
+          path: build/dist/WhatsApp-win32-x64/
           if-no-files-found: error
           retention-days: 30
-          
-  build-linux:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
       
-      - name: 🟢 Setup Node.js 24.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24.13.1'
-          cache: 'npm'
-      
-      - name: 📦 Install Yarn
-        run: npm install -g yarn
-      
-      - name: 🔧 Install root dependencies
-        run: npm install
-      
-      - name: 🔧 Install app dependencies
-        run: |
-          cd app
-          yarn install
-          cd ..
-      
-      - name: 🏗️ Build Linux x64
-        run: npm run build:linux
-      
-      - name: 📤 Upload Linux Build
+      - name: 📤 Upload Windows Build (ZIP)
         uses: actions/upload-artifact@v4
         with:
-          name: WhatsApp-Desktop-Linux-x64
-          path: dist/whatsapp-desktop-linux-x64/
-          if-no-files-found: error
-          retention-days: 30
-          
-  build-macos-intel:
-    runs-on: macos-13
-    
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-      
-      - name: 🟢 Setup Node.js 24.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24.13.1'
-          cache: 'npm'
-      
-      - name: 📦 Install Yarn
-        run: npm install -g yarn
-      
-      - name: 🔧 Install root dependencies
-        run: npm install
-      
-      - name: 🔧 Install app dependencies
-        run: |
-          cd app
-          yarn install
-          cd ..
-      
-      - name: 🏗️ Build macOS x64 (Intel)
-        run: npm run build:osx
-      
-      - name: 📤 Upload macOS Intel Build
-        uses: actions/upload-artifact@v4
-        with:
-          name: WhatsApp-Desktop-macOS-x64
-          path: dist/whatsapp-desktop-darwin-x64/
-          if-no-files-found: error
-          retention-days: 30
-          
-  build-macos-arm:
-    runs-on: macos-14
-    
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-      
-      - name: 🟢 Setup Node.js 24.x
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24.13.1'
-          cache: 'npm'
-      
-      - name: 📦 Install Yarn
-        run: npm install -g yarn
-      
-      - name: 🔧 Install root dependencies
-        run: npm install
-      
-      - name: 🔧 Install app dependencies
-        run: |
-          cd app
-          yarn install
-          cd ..
-      
-      - name: 🏗️ Build macOS ARM64 (Apple Silicon)
-        run: npm run build:osxm1
-      
-      - name: 📤 Upload macOS ARM Build
-        uses: actions/upload-artifact@v4
-        with:
-          name: WhatsApp-Desktop-macOS-ARM64
-          path: dist/whatsapp-desktop-darwin-arm64/
+          name: WhatsApp-Desktop-Windows-x64-ZIP
+          path: build/releases/WhatsApp-win32-x64.zip
           if-no-files-found: error
           retention-days: 30
