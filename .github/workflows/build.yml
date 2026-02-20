@@ -1,59 +1,160 @@
-name: Build WhatsApp Desktop - Windows Only
+name: Build WhatsApp Desktop for Windows
 
 on:
   push:
-    branches: [ master, main ]
+    branches: [master, main]
   pull_request:
-    branches: [ master, main ]
+    branches: [master, main]
   workflow_dispatch:
+
+env:
+  NODE_VERSION: '24.13.1'
+  ELECTRON_VERSION: '40.6.0'
+  APP_NAME: 'WhatsApp'
+  BUILD_DIR: 'build/dist'
+  RELEASE_DIR: 'build/releases'
 
 jobs:
   build-windows:
+    name: Build Windows x64
     runs-on: windows-latest
+    timeout-minutes: 30
     
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
+      # ==================== SETUP ====================
       
-      - name: 🟢 Setup Node.js 24.x
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.13.1'
-          # ELIMINĂ linia cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
       
-      - name: 📦 Install Yarn globally
-        run: npm install -g yarn
+      - name: 📦 Setup Yarn
+        run: npm install -g yarn@latest
+        shell: pwsh
+      
+      # ==================== DEPENDENCIES ====================
       
       - name: 🔧 Install root dependencies
-        run: npm install
+        run: npm ci --prefer-offline
+        shell: pwsh
       
       - name: 🔧 Install app dependencies
         working-directory: ./app
-        run: yarn install
+        run: yarn install --frozen-lockfile --prefer-offline
+        shell: pwsh
       
-      - name: 🏗️ Build Windows x64 (fără asar - folder app/)
-        shell: cmd
+      # ==================== VALIDATION ====================
+      
+      - name: ✅ Verify icon exists
         run: |
-          npx electron-packager ./app WhatsApp --overwrite --out=build/dist --package-manager=yarn --platform=win32 --arch=x64 --electron-version=40.6.0 --icon=build/assets/win/whatsapp.ico --no-asar
+          if (!(Test-Path "whatsapp.ico")) {
+            Write-Error "Icon file not found: whatsapp.ico"
+            exit 1
+          }
+          Write-Host "✓ Icon file verified" -ForegroundColor Green
+        shell: pwsh
       
-      - name: 📦 Create build directory structure
-        shell: powershell
+      - name: ✅ Verify app structure
         run: |
-          New-Item -ItemType Directory -Force -Path build/releases
-          Compress-Archive -Path build/dist/WhatsApp-win32-x64/* -DestinationPath build/releases/WhatsApp-win32-x64.zip -Force
+          $requiredFiles = @("main.js", "menu.js", "package.json")
+          foreach ($file in $requiredFiles) {
+            if (!(Test-Path "app/$file")) {
+              Write-Error "Required file not found: app/$file"
+              exit 1
+            }
+          }
+          Write-Host "✓ App structure validated" -ForegroundColor Green
+        shell: pwsh
       
-      - name: 📤 Upload Windows Build (Folder)
+      # ==================== BUILD ====================
+      
+      - name: 🏗️ Build Windows application
+        run: |
+          npx electron-packager ./app ${{ env.APP_NAME }} `
+            --overwrite `
+            --out=${{ env.BUILD_DIR }} `
+            --platform=win32 `
+            --arch=x64 `
+            --electron-version=${{ env.ELECTRON_VERSION }} `
+            --icon=whatsapp.ico `
+            --no-asar `
+            --app-version=0.6.0 `
+            --win32metadata.CompanyName="WhatsApp Desktop" `
+            --win32metadata.FileDescription="WhatsApp Desktop Client" `
+            --win32metadata.ProductName="WhatsApp Desktop"
+        shell: pwsh
+      
+      - name: ✅ Verify build output
+        run: |
+          $buildPath = "${{ env.BUILD_DIR }}/${{ env.APP_NAME }}-win32-x64"
+          if (!(Test-Path "$buildPath/${{ env.APP_NAME }}.exe")) {
+            Write-Error "Build failed: executable not found"
+            exit 1
+          }
+          $size = (Get-Item "$buildPath/${{ env.APP_NAME }}.exe").Length / 1MB
+          Write-Host "✓ Build successful - Executable size: $([math]::Round($size, 2)) MB" -ForegroundColor Green
+        shell: pwsh
+      
+      # ==================== PACKAGE ====================
+      
+      - name: 📦 Create release package
+        run: |
+          New-Item -ItemType Directory -Force -Path ${{ env.RELEASE_DIR }} | Out-Null
+          
+          $sourcePath = "${{ env.BUILD_DIR }}/${{ env.APP_NAME }}-win32-x64/*"
+          $zipPath = "${{ env.RELEASE_DIR }}/${{ env.APP_NAME }}-win32-x64-v0.6.0.zip"
+          
+          Compress-Archive -Path $sourcePath -DestinationPath $zipPath -Force -CompressionLevel Optimal
+          
+          $zipSize = (Get-Item $zipPath).Length / 1MB
+          Write-Host "✓ Package created - Size: $([math]::Round($zipSize, 2)) MB" -ForegroundColor Green
+        shell: pwsh
+      
+      # ==================== ARTIFACTS ====================
+      
+      - name: 📤 Upload executable folder
         uses: actions/upload-artifact@v4
         with:
-          name: WhatsApp-Desktop-Windows-x64
-          path: build/dist/WhatsApp-win32-x64/
+          name: WhatsApp-Desktop-Windows-x64-v0.6.0
+          path: ${{ env.BUILD_DIR }}/${{ env.APP_NAME }}-win32-x64/
           if-no-files-found: error
           retention-days: 30
+          compression-level: 6
       
-      - name: 📤 Upload Windows Build (ZIP)
+      - name: 📤 Upload release package
         uses: actions/upload-artifact@v4
         with:
-          name: WhatsApp-Desktop-Windows-x64-ZIP
-          path: build/releases/WhatsApp-win32-x64.zip
+          name: WhatsApp-Desktop-Windows-x64-v0.6.0-ZIP
+          path: ${{ env.RELEASE_DIR }}/${{ env.APP_NAME }}-win32-x64-v0.6.0.zip
           if-no-files-found: error
           retention-days: 30
+          compression-level: 0
+      
+      # ==================== SUMMARY ====================
+      
+      - name: 📊 Build summary
+        if: success()
+        run: |
+          Write-Host "`n════════════════════════════════════════" -ForegroundColor Cyan
+          Write-Host "   BUILD SUCCESSFUL" -ForegroundColor Green
+          Write-Host "════════════════════════════════════════" -ForegroundColor Cyan
+          Write-Host ""
+          Write-Host "Application: ${{ env.APP_NAME }}" -ForegroundColor White
+          Write-Host "Version: 0.6.0" -ForegroundColor White
+          Write-Host "Electron: ${{ env.ELECTRON_VERSION }}" -ForegroundColor White
+          Write-Host "Node.js: ${{ env.NODE_VERSION }}" -ForegroundColor White
+          Write-Host "Platform: Windows x64" -ForegroundColor White
+          Write-Host "ASAR: Disabled (folder app/)" -ForegroundColor White
+          Write-Host ""
+          Write-Host "Artifacts uploaded:" -ForegroundColor Yellow
+          Write-Host "  • WhatsApp-Desktop-Windows-x64-v0.6.0" -ForegroundColor White
+          Write-Host "  • WhatsApp-Desktop-Windows-x64-v0.6.0-ZIP" -ForegroundColor White
+          Write-Host ""
+          Write-Host "════════════════════════════════════════" -ForegroundColor Cyan
+        shell: pwsh
