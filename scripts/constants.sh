@@ -1,8 +1,9 @@
 #!/bin/bash
 
 APP_NAME="WhatsApp"
-APP_VERSION="0.5.4"
-ELECTRON_VERSION="17.0.0"
+APP_VERSION="0.6.0"
+ELECTRON_VERSION="40.6.0"
+
 ASSETS_DIR="./assets"
 BUILD_DIR="./build"
 DIST_DIR="$BUILD_DIR/dist"
