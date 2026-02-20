@@ -31,10 +31,10 @@ jobs:
         working-directory: ./app
         run: yarn install
       
-      - name: 🏗️ Build Windows x64 with electron-packager
+      - name: 🏗️ Build Windows x64 (fără asar - folder app/)
         shell: cmd
         run: |
-          npx electron-packager ./app WhatsApp --overwrite --out=build/dist --package-manager=yarn --platform=win32 --arch=x64 --electron-version=40.6.0 --icon=build/assets/win/whatsapp.ico
+          npx electron-packager ./app WhatsApp --overwrite --out=build/dist --package-manager=yarn --platform=win32 --arch=x64 --electron-version=40.6.0 --icon=build/assets/win/whatsapp.ico --no-asar
       
       - name: 📦 Create build directory structure
         shell: powershell
