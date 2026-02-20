@@ -1,8 +1,8 @@
 {
     "name": "whatsapp-desktop",
-    "version": "0.5.4",
+    "version": "0.6.0",
     "repository": "https://github.com/oOthkOo/whatsapp-desktop.git",
-    "description": "Unofficial WhatsApp Desktop Client for OSX, Linux and Windows. Build with Electron.",
+    "description": "Unofficial WhatsApp Desktop Client for OSX, Linux and Windows. Built with Electron 40.6.0 and Node.js 24.13.1",
     "main": "main.js",
     "scripts": {
         "dev": "electron --no-sandbox --debug=5858 ./app",
@@ -18,11 +18,15 @@
         "build:all": "./scripts/build-all.sh"
     },
     "devDependencies": {
-        "electron": "^17.0.0",
-        "electron-packager": "15.5.1"
+        "electron": "^40.6.0",
+        "@electron/packager": "^19.0.2"
     },
     "dependencies": {
-        "process-nextick-args": "^1.0.7",
+        "process-nextick-args": "^2.0.1",
         "util-deprecate": "^1.0.2"
+    },
+    "engines": {
+        "node": ">=24.13.1",
+        "npm": ">=10.0.0"
     }
 }
